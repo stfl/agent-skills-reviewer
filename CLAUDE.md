@@ -26,9 +26,11 @@ what each comment means.
   database decides which code points are unassigned.
 - No event field reaches a script through `${{ }}`; the script reads
   `$GITHUB_EVENT_PATH`.
-- The fixed rules refuse and never strip. Where their Markdown parsing can
-  differ from GitHub's renderer, it errs toward finding code-free markup and
-  headings, never toward treating text as code.
+- The fixed rules refuse and never strip. Their Markdown parsing is not
+  GitHub's: text counts as code only when every reading GitHub could take
+  agrees, and a line counts as a heading when any reading could. A change
+  that makes more text count as code needs a test with GitHub's rendering of
+  the case (`gh api markdown -f mode=gfm -f text=...`).
 
 ## Ship order
 
@@ -58,9 +60,9 @@ No text the model wrote, and no report text, reaches a log, a comment or
 Stefan; stfl/agent-dev-skills' run logs are readable by any signed-in user.
 The job logs one line per grade, `grade: <verdict> sha256:<hex> (model
 called: yes|no)`, and for a failed model call one more line with only the
-HTTP status and the API's error `type` (or `timeout`, `connection`). An
-uncaught exception logs only its type name. Comments are never edited or
-deleted.
+HTTP status and the API's error `type` (or `timeout`, `connection`,
+`request`). A skipped event logs nothing. An uncaught exception logs only its
+type name. Comments are never edited or deleted.
 
 ## Comment and hash contract
 

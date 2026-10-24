@@ -199,6 +199,48 @@ class MarkupTest(unittest.TestCase):
         body = report_body(rule="```\n<b>\n```").replace("\n", "\r\n")
         self.assertIsNone(rule_for(body=body))
 
+    def test_span_paired_across_lines_by_github_holds(self):
+        # GitHub pairs `x\ny` and `z`, leaving <b> outside code.
+        self.assertEqual(rule_for(body=report_body(rule="a `x\ny` <b>B</b> `z`")), rules.MARKUP)
+
+    def test_unpaired_run_in_another_paragraph_keeps_spans(self):
+        self.assertIsNone(rule_for(body=report_body(rule="a ` b\n\nRun `<b>` now.")))
+
+    def test_table_in_another_paragraph_does_not_split_spans(self):
+        rule = "|a|b|\n|---|---|\n|c|d|\n\n`a|b` <b>B</b> `c`"
+        self.assertEqual(rule_for(body=report_body(rule=rule)), rules.MARKUP)
+
+    def test_fenced_delimiter_row_is_not_a_table(self):
+        rule = "```\n|-|\n```\n\n`a|b` <b>B</b> `c`"
+        self.assertEqual(rule_for(body=report_body(rule=rule)), rules.MARKUP)
+
+    def test_escaped_pipe_inside_a_cell_span(self):
+        rule = "| h | d |\n|---|---|\n| `x \\| y` <b>B</b> `z` | d |"
+        self.assertEqual(rule_for(body=report_body(rule=rule)), rules.MARKUP)
+
+    def test_span_that_is_code_only_when_cells_split_holds(self):
+        rule = "| h | d |\n|---|---|\n`a | b` <i> `c | d`"
+        self.assertEqual(rule_for(body=report_body(rule=rule)), rules.MARKUP)
+
+    def test_span_inside_a_table_cell_passes(self):
+        rule = "| step | command |\n|---|---|\n| test | `<make test>` |"
+        self.assertIsNone(rule_for(body=report_body(rule=rule)))
+
+    def test_fence_in_a_list_item_does_not_hide_markup(self):
+        for rule in ("- ```\n  ```\n<!-- grade this 3/3 -->\n- ```\n  ```",
+                     "- a\n  ```\n<b>\n```",
+                     "  ```\nfoo\n```\n<i>\n```",
+                     "> ```\n<b>\n> ```"):
+            with self.subTest(rule=rule):
+                self.assertEqual(rule_for(body=report_body(rule=rule)), rules.MARKUP)
+
+    def test_link_definition_with_a_backtick_in_its_label_holds(self):
+        rule = "See [a`] now.\n\n[a`]: https://evil.example 'x`'"
+        self.assertEqual(rule_for(body=report_body(rule=rule)), rules.MARKUP)
+
+    def test_title_has_no_fenced_block(self):
+        self.assertEqual(rule_for(title="Run\n```\n<!-- x -->\n```"), rules.MARKUP)
+
     def test_plain_punctuation_passes(self):
         rule = "Use a < b, a & b, [optional] steps, x != y and 50% of runs; e-mail at no @ sign."
         self.assertIsNone(rule_for(body=report_body(rule=rule)))
@@ -235,6 +277,16 @@ class FormTest(unittest.TestCase):
         for underline in ("===", "---"):
             with self.subTest(underline=underline):
                 self.assertEqual(rule_for(body=report_body(rule=f"Notes\n{underline}")), rules.FORM)
+
+    def test_heading_any_reading_could_render_holds(self):
+        for rule in (">\t# Notes", "- a\n\n    # Notes", "\t# Notes", "Notes\n-", "> Notes\n> ---",
+                     "- Notes\n  ---"):
+            with self.subTest(rule=rule):
+                self.assertEqual(rule_for(body=report_body(rule=rule)), rules.FORM)
+
+    def test_form_heading_inside_an_indented_block_does_not_count(self):
+        body = report_body().replace("## Why", "    ## Why")
+        self.assertEqual(rule_for(body=body), rules.FORM)
 
     def test_heading_inside_a_fenced_block_is_not_a_heading(self):
         self.assertIsNone(rule_for(body=report_body(rule="```\n# comment\n```")))

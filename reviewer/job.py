@@ -86,11 +86,9 @@ def run(event_name, event, *, http, github_token, anthropic_key, log, github_api
     """Grade the report an issues event names; return the exit code."""
     action = event.get("action")
     if event_name != "issues" or action not in ACTIONS:
-        log("skip: not an issues opened or edited event")
         return 0
     issue = event["issue"]
     if (issue.get("user") or {}).get("login") not in BOTS:
-        log("skip: author is not a Company App")
         return 0
 
     repository = event["repository"]

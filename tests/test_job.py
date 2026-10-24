@@ -209,9 +209,10 @@ class SkipTest(unittest.TestCase):
         for login in ("stfl", "github-actions[bot]", "stfl-agent-stf", "stfl-agent-xyz[bot]"):
             with self.subTest(login=login):
                 http = FakeHTTP()
-                code, _ = run(http, login=login)
+                code, lines = run(http, login=login)
                 self.assertEqual(code, 0)
                 self.assertEqual(http.calls, [])
+                self.assertEqual(lines, [])
 
     def test_both_company_apps_are_graded(self):
         for login in sorted(job.BOTS):
@@ -225,9 +226,10 @@ class SkipTest(unittest.TestCase):
                                    ("pull_request", "opened")):
             with self.subTest(event=event_name, action=action):
                 http = FakeHTTP()
-                code, _ = run(http, event_name=event_name, action=action)
+                code, lines = run(http, event_name=event_name, action=action)
                 self.assertEqual(code, 0)
                 self.assertEqual(http.calls, [])
+                self.assertEqual(lines, [])
 
 
 class OrderTest(unittest.TestCase):

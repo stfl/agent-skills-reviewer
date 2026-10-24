@@ -10,7 +10,7 @@ class NoAnswer(Exception):
 
     def __init__(self, reason):
         super().__init__(reason)
-        self.reason = reason  # "timeout" or "connection"
+        self.reason = reason  # "timeout", "connection" or "request"
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -27,14 +27,19 @@ def send(method, url, headers, data, timeout):
     """Send one request; return (status, body bytes) or raise NoAnswer."""
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with _OPENER.open(request, timeout=timeout) as response:
-            return response.status, response.read()
-    except urllib.error.HTTPError as error:
-        with error:
-            return error.code, error.read()
+        try:
+            with _OPENER.open(request, timeout=timeout) as response:
+                return response.status, response.read()
+        except urllib.error.HTTPError as error:
+            with error:
+                return error.code, error.read()
     except TimeoutError:
         raise NoAnswer("timeout") from None
     except (urllib.error.URLError, OSError, http.client.HTTPException) as error:
         if isinstance(getattr(error, "reason", None), TimeoutError):
             raise NoAnswer("timeout") from None
         raise NoAnswer("connection") from None
+    except ValueError:
+        # http.client refuses a header value with a line break, such as a
+        # secret stored with a trailing newline.
+        raise NoAnswer("request") from None
