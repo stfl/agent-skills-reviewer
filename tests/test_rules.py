@@ -222,6 +222,15 @@ class MarkupTest(unittest.TestCase):
         rule = "| h | d |\n|---|---|\n`a | b` <i> `c | d`"
         self.assertEqual(rule_for(body=report_body(rule=rule)), rules.MARKUP)
 
+    def test_delimiter_row_without_a_pipe_makes_a_table(self):
+        for rule in ("|a|\n:-\n`x <b>B</b> | y`", "a\n:-:\n`x <!-- hidden --> <b>B</b> | y`"):
+            with self.subTest(rule=rule):
+                self.assertEqual(rule_for(body=report_body(rule=rule)), rules.MARKUP)
+
+    def test_pipe_after_an_escaped_backslash_does_not_split_a_cell(self):
+        rule = "|a|b|c|\n|-|-|-|\n| `p | `x \\\\| y` <!-- hidden --> <b>B</b> `z` | w` |"
+        self.assertEqual(rule_for(body=report_body(rule=rule)), rules.MARKUP)
+
     def test_span_inside_a_table_cell_passes(self):
         rule = "| step | command |\n|---|---|\n| test | `<make test>` |"
         self.assertIsNone(rule_for(body=report_body(rule=rule)))

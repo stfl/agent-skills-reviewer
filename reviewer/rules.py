@@ -274,24 +274,25 @@ def _closing_run(text, start, length):
 
 
 def _cell_code_spans(line):
-    """Flag code-span characters with the line read as table cells."""
-    mask = [False] * len(line)
+    """Flag code-span characters with the line read as table cells.
+
+    GitHub splits cells at every pipe not directly after a backslash, even
+    when that backslash is itself escaped.
+    """
+    mask = []
     start = 0
-    i, n = 0, len(line)
-    while i <= n:
-        if i < n and line[i] == "\\":
-            i = min(i + 2, n)
-            continue
-        if i == n or line[i] == "|":
-            cell, _ = _code_spans(line[start:i])
-            mask[start:i] = cell
+    for i in range(len(line) + 1):
+        if i == len(line) or (line[i] == "|" and (i == 0 or line[i - 1] != "\\")):
+            mask += _code_spans(line[start:i])[0]
+            if i < len(line):
+                mask.append(False)
             start = i + 1
-        i += 1
     return mask
 
 
 def _is_table_delimiter(line):
-    return "|" in line and "-" in line and set(line) <= _TABLE_DELIMITER_CHARS
+    # GitHub accepts a delimiter row without a pipe, such as ":-".
+    return "-" in line and set(line) <= _TABLE_DELIMITER_CHARS
 
 
 def _may_be_atx(line):
