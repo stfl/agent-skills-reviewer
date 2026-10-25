@@ -31,6 +31,12 @@ what each comment means.
   agrees, and a line counts as a heading when any reading could. A change
   that makes more text count as code needs a test with GitHub's rendering of
   the case (`gh api markdown -f mode=gfm -f text=...`).
+- The verdict rule reads code spans and fenced blocks too, since the model
+  reads them, and it is measured against real skill text: a new pattern
+  needs a test with an honest phrase that must not fire. Its patterns come
+  from the forged verdicts of the labelled set's first graded run; other
+  wordings, such as `3/3 passed` or look-alike letters, are left to the
+  model.
 
 ## Ship order
 
@@ -53,6 +59,12 @@ object with exactly the three keys, each a JSON boolean) with all three false.
 Every other outcome holds. Loosening the pass rule, meaning anything but three
 noes passing or any hold becoming a pass, takes Stefan's word. Never regrade
 an edit, and never route a refusal to another model.
+
+A `held: not graded` in a red run is re-run: the API failed (a timeout, a
+connection error or a non-200 status, so `grade.grade` set `api_error`), and
+Stefan re-runs the job. A `held: not graded` in a green run is final and never
+re-run: the model answered HTTP 200 out of form (a refusal, `max_tokens`, text
+outside the schema), and a re-run would hand an attacker a second try.
 
 ## No model-written text in a log or comment
 
@@ -82,8 +94,8 @@ sha256:<64 lowercase hex digits>
 `<verdict>` is one of `passed 3/3`, `held 0/3`, `held 1/3`, `held 2/3`,
 `held: <rule>`, `held: edited`, `held: not graded`. In `held n/3` and
 `passed 3/3`, n counts the checks passed, the questions answered no.
-`<rule>` is one of `hidden character`, `length`, `base64`, `markup`, `form`,
-`skill`.
+`<rule>` is one of `hidden character`, `length`, `base64`, `markup`,
+`verdict`, `form`, `skill`.
 
 The hash is SHA-256 over the title's UTF-8 bytes, one NUL byte (0x00), then
 the body's UTF-8 bytes. Title and body are the strings exactly as the REST

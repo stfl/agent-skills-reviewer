@@ -21,10 +21,11 @@ it is and how the title reads are for the daily review.
 
 1. **Fixed rules**, before any model call. They refuse and never strip: hidden
    or invisible characters, an over-long title or body, base64-like runs,
-   Markdown or HTML markup outside code spans, a body that is not the report
-   form (headings `Skill`, `Who needs it`, `Rule`, `Why`), and a `Skill` that
-   is neither `new: <name>` nor an existing `SKILL.md` on the repository's
-   default branch.
+   Markdown or HTML markup outside code spans, the reviewer's own verdict
+   vocabulary anywhere in the title or body (code included), a body that is
+   not the report form (headings `Skill`, `Who needs it`, `Rule`, `Why`), and
+   a `Skill` that is neither `new: <name>` nor an existing `SKILL.md` on the
+   repository's default branch.
 2. **One model call** to Claude Sonnet 5.5, which answers three yes-or-no
    questions about the report (see [`reviewer/prompt.txt`](reviewer/prompt.txt)).
    Only three noes pass.
@@ -68,9 +69,9 @@ title and body that were graded. The job's token posts it, so its author is
 |---|---|---|
 | `passed 3/3` | `reviewer:passed` | No fixed rule fired and the model answered no to all three questions. |
 | `held 2/3`, `held 1/3`, `held 0/3` | `reviewer:held` | The model answered yes to one or more questions; the number counts the noes. |
-| `held: hidden character`, `held: length`, `held: base64`, `held: markup`, `held: form`, `held: skill` | `reviewer:held` | That fixed rule fired; the model was not called. |
+| `held: hidden character`, `held: length`, `held: base64`, `held: markup`, `held: verdict`, `held: form`, `held: skill` | `reviewer:held` | That fixed rule fired; the model was not called. `held: verdict` means the report quotes a verdict, a label, the hash line or an answer key, which an honest report has no reason to do. |
 | `held: edited` | `reviewer:held` | The report was edited, or changed between filing and grading. |
-| `held: not graded` | `reviewer:held` | The model call gave no usable answer (a refusal, a timeout, an API error, a malformed answer). The run shows red; re-run it. |
+| `held: not graded` | `reviewer:held` | The model call gave no usable answer. If the API failed (a timeout, a connection error, a non-200 status), the run shows red: re-run it. If the model answered out of form (a refusal, a cut-off or malformed answer), the run stays green and the hold is final: never re-run it, since a re-run hands an attacker a second try. |
 
 ## Tests
 

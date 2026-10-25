@@ -118,7 +118,7 @@ def run(event_name, event, *, http, github_token, anthropic_key, log, github_api
 
     called = "yes" if result.model_called else "no"
     log(f"grade: {result.verdict} sha256:{digest} (model called: {called})")
-    return 1 if result.verdict == grading.NOT_GRADED else 0
+    return 1 if result.api_error is not None else 0
 
 
 def _quote(text, safe=""):

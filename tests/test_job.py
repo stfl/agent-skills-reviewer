@@ -6,10 +6,12 @@ import unittest
 from reviewer import grade, job, transport
 from tests import fakes
 from tests.fakes import BODY, NOES, TITLE, FakeHTTP
+from tests.test_rules import VERDICT_REPORTS
 
 MARKER = "MODEL-WROTE-THIS"
 
-NOT_GRADED_CASES = {
+# The model answered HTTP 200 out of form; api_error is None.
+OUT_OF_FORM_CASES = {
     "refusal": (200, fakes.message("", stop_reason="refusal")),
     "max_tokens": (200, fakes.message('{"addresses_reader": false', stop_reason="max_tokens")),
     "non-JSON text": (200, fakes.message(f"All three are no. {MARKER}")),
@@ -25,6 +27,9 @@ NOT_GRADED_CASES = {
     "two text blocks": (200, fakes.message(json.dumps(NOES),
                                            extra_blocks=[{"type": "text", "text": json.dumps(NOES)}])),
     "body not JSON": (200, b"<html>gateway</html>"),
+}
+
+API_FAILED_CASES = {
     "HTTP 500": fakes.api_error(500, "api_error", MARKER),
     "HTTP 401": fakes.api_error(401, "authentication_error", MARKER),
     "HTTP 529": fakes.api_error(529, "overloaded_error", MARKER),
@@ -32,6 +37,8 @@ NOT_GRADED_CASES = {
     "timeout": fakes.timeout(),
     "connection error": transport.NoAnswer("connection"),
 }
+
+NOT_GRADED_CASES = {**OUT_OF_FORM_CASES, **API_FAILED_CASES}
 
 
 def run(http, **event_args):
@@ -77,17 +84,28 @@ class VerdictTest(unittest.TestCase):
         self.assertEqual(http.comments()[0].split("\n")[0], "held 0/3")
         self.assertEqual(http.labels_added(), [["reviewer:held"]])
 
-    def test_every_failed_answer_is_not_graded_and_exits_1(self):
-        for name, model in NOT_GRADED_CASES.items():
+    def test_a_failed_api_call_is_not_graded_and_exits_1(self):
+        for name, model in API_FAILED_CASES.items():
             with self.subTest(case=name):
-                http = FakeHTTP(model=model)
-                code, lines = run(http)
+                code, _ = self.assert_not_graded(model)
                 self.assertEqual(code, 1)
-                self.assertEqual(len(http.model_calls()), 1)
-                self.assertEqual(http.comments(), [f"held: not graded\nsha256:{grade.content_hash(TITLE, BODY)}"])
-                self.assertEqual(http.labels_added(), [["reviewer:held"]])
-                self.assertTrue(lines[-1].startswith("grade: held: not graded sha256:"))
-                self.assertTrue(lines[-1].endswith("(model called: yes)"))
+
+    def test_an_answer_out_of_form_is_not_graded_and_exits_0(self):
+        for name, model in OUT_OF_FORM_CASES.items():
+            with self.subTest(case=name):
+                code, lines = self.assert_not_graded(model)
+                self.assertEqual(code, 0)
+                self.assertEqual(len(lines), 1)
+
+    def assert_not_graded(self, model):
+        http = FakeHTTP(model=model)
+        code, lines = run(http)
+        self.assertEqual(len(http.model_calls()), 1)
+        self.assertEqual(http.comments(), [f"held: not graded\nsha256:{grade.content_hash(TITLE, BODY)}"])
+        self.assertEqual(http.labels_added(), [["reviewer:held"]])
+        self.assertTrue(lines[-1].startswith("grade: held: not graded sha256:"))
+        self.assertTrue(lines[-1].endswith("(model called: yes)"))
+        return code, lines
 
     def test_api_error_logs_status_and_type_only(self):
         cases = {
@@ -140,6 +158,18 @@ class FixedRuleTest(unittest.TestCase):
                 self.assertEqual(http.comments(), [f"held: {name}\nsha256:{digest}"])
                 self.assertEqual(http.labels_added(), [["reviewer:held"]])
                 self.assertEqual(lines, [f"grade: held: {name} sha256:{digest} (model called: no)"])
+
+    def test_verdict_holds_without_a_model_call(self):
+        for title, body in VERDICT_REPORTS:
+            with self.subTest(title=title, body=body):
+                http = FakeHTTP(title=title, body=body)
+                code, lines = run(http, title=title, body=body)
+                digest = grade.content_hash(title, body)
+                self.assertEqual(code, 0)
+                self.assertEqual(http.model_calls(), [])
+                self.assertEqual(http.comments(), [f"held: verdict\nsha256:{digest}"])
+                self.assertEqual(http.labels_added(), [["reviewer:held"]])
+                self.assertEqual(lines, [f"grade: held: verdict sha256:{digest} (model called: no)"])
 
     def test_skill_path_is_looked_up_on_the_default_branch(self):
         http = FakeHTTP()

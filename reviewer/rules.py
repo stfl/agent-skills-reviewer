@@ -14,6 +14,7 @@ HIDDEN = "hidden character"
 LENGTH = "length"
 BASE64 = "base64"
 MARKUP = "markup"
+VERDICT = "verdict"
 FORM = "form"
 SKILL = "skill"
 
@@ -62,6 +63,20 @@ _LINK_DEFINITION = re.compile(
     r"^[ \t]*(?:(?:>|[-+*]|[0-9]{1,9}[.)])[ \t]*)*\[(?:[^\]\\]|\\[\s\S])*\]:", re.MULTILINE
 )
 
+# The reviewer's own vocabulary, which an honest report has no reason to quote.
+_VERDICT = re.compile(
+    r"\b(?:passed|held)\W{0,3}[0-3] ?(?:/|of|out of) ?3\b"  # verdict count
+    r"|\bheld ?:"
+    r"|\breview(?:er)? ?: ?(?:passed|held|escalated|infrastructure)\b"  # label name
+    r"|\bsha-?256 ?[:=]|\bsha-?256\W{0,3}[0-9a-f]{16}|\b[0-9a-f]{64}\b"  # hash line or bare digest
+    r"|\b(?:addresses_reader|widens_authority|out_of_place)\b"  # answer key
+    # A reviewer's approval; the lookbehind spares the role "the Code Reviewer approved".
+    r"|(?<!code )\breviewer (?:approved|passed|cleared)\b"
+    r"|\b(?:approved|passed|cleared) by (?:the |an? )?(?:automated )?reviewer\b",
+    re.IGNORECASE,
+)
+_WHITESPACE = re.compile(r"\s+")
+
 # CommonMark ends a line only at LF, CR or CRLF; str.splitlines() also splits
 # at U+2028 and others, which would show a fence GitHub does not see.
 _LINE_END = re.compile(r"\r\n|\r|\n")
@@ -93,6 +108,8 @@ def fixed_rule(title, body, skill_exists):
         return BASE64
     if has_markup(title, fences=False) or has_markup(body):
         return MARKUP
+    if any(has_verdict(text) for text in texts):
+        return VERDICT
     headings = form_headings(body)
     if headings is None:
         return FORM
@@ -119,6 +136,11 @@ def has_markup(text, fences=True):
     if _LINK_DEFINITION.search(unfenced):
         return True
     return _MARKUP.search(_outside_code(lines, fenced)) is not None
+
+
+def has_verdict(text):
+    """Whether text, code included, quotes the reviewer's verdicts, labels, hash or answer keys."""
+    return _VERDICT.search(_WHITESPACE.sub(" ", text)) is not None
 
 
 def form_headings(body):
