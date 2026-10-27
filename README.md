@@ -15,7 +15,10 @@ Report text comes from agents that read untrusted input, so it may carry
 prompt injection. The reviewer holds anything odd before the daily review, a
 later and separate model pass, reads it, and every hold reaches Stefan. A pass
 says only that nothing tripped the filter. Whether the rule is right, how long
-it is and how the title reads are for the daily review.
+it is and how the title reads are for the daily review. Whether the Rule adds
+what a capable model lacks, a choice among correct options or a fact about
+the agents' environment rather than a general pitfall of a language or tool,
+is the daily review's call, under its check 2.
 
 ## How a report is graded
 
